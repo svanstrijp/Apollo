@@ -32,6 +32,7 @@ namespace Apollo.Agent
             if (Config.SleepMaskEnabled)
             {
                 SleepMaskingManager = new SleepMaskingManager(this);
+                SleepMaskingManager.RegisterSelfRegion();
             }
             
 
