@@ -29,7 +29,10 @@ namespace Apollo.Agent
             ProcessManager = new Process.ProcessManager(this);
             InjectionManager = new Injection.InjectionManager(this);
             TicketManager = new KerberosTickets.KerberosTicketManager(this);
-            SleepMaskingManager = new SleepMaskingManager(this);
+            if (Config.SleepMaskEnabled)
+            {
+                SleepMaskingManager = new SleepMaskingManager(this);
+            }
             
 
             foreach (string profileName in Config.EgressProfiles.Keys)

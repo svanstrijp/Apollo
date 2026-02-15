@@ -26,14 +26,14 @@ class LoadArguments(TaskArguments):
     async def get_remaining_commands(self, inputMsg: PTRPCDynamicQueryFunctionMessage) -> PTRPCDynamicQueryFunctionMessageResponse:
         fileResponse = PTRPCDynamicQueryFunctionMessageResponse(Success=False)
         all_cmds = await SendMythicRPCCommandSearch(MythicRPCCommandSearchMessage(
-            SearchPayloadTypeName="apollo"
+            SearchPayloadTypeName="apollo_beta"
         ))
         loaded_cmds = await SendMythicRPCCallbackSearchCommand(MythicRPCCallbackSearchCommandMessage(
             CallbackID=inputMsg.Callback
         ))
 
         if not all_cmds.Success:
-            raise Exception("Failed to get commands for apollo agent: {}".format(all_cmds.Error))
+            raise Exception("Failed to get commands for apollo_beta agent: {}".format(all_cmds.Error))
         if not loaded_cmds.Success:
             raise Exception("Failed to fetch loaded commands from callback {}: {}".format(inputMsg.Callback, loaded_cmds.Error))
 
@@ -89,7 +89,7 @@ class LoadCommand(CommandBase):
             Success=True,
         )
         requested_cmds = await SendMythicRPCCommandSearch(MythicRPCCommandSearchMessage(
-            SearchPayloadTypeName="apollo",
+            SearchPayloadTypeName="apollo_beta",
             SearchCommandNames=taskData.args.get_arg("commands"),
         ))
         loaded_cmds = await SendMythicRPCCallbackSearchCommand(MythicRPCCallbackSearchCommandMessage(
@@ -210,7 +210,7 @@ class LoadCommand(CommandBase):
             raise Exception("Failed to register commands ({}) from response: {}".format(resp, reg_resp.Error))
 
         all_cmds = await SendMythicRPCCommandSearch(MythicRPCCommandSearchMessage(
-            SearchPayloadTypeName="apollo",
+            SearchPayloadTypeName="apollo_beta",
             SearchCommandNames=task.args.get_arg("commands"),
         ))
         loaded_cmds = await SendMythicRPCCallbackSearchCommand(MythicRPCCallbackSearchCommandMessage(

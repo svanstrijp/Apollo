@@ -14,8 +14,8 @@ class SpawnArguments(TaskArguments):
                 cli_name="Payload",
                 display_name="Payload Template (Shellcode)",
                 type=ParameterType.Payload,
-                supported_agents=["apollo"],
-                supported_agent_build_parameters={"apollo": {"output_type": "Shellcode"}}),
+                supported_agents=["apollo_beta"],
+                supported_agent_build_parameters={"apollo_beta": {"output_type": "Shellcode"}}),
         ]
 
     async def parse_arguments(self):

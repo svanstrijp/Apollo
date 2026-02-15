@@ -170,10 +170,16 @@ namespace Apollo
 #elif TCP
         public static string PayloadUUID = "bfc167ea-9142-4da3-b807-c57ae054c544";
 #endif
+        public static bool SleepMaskEnabled = true;
 #else
         // TODO: Make the AES key a config option specific to each profile
         public static string StagingRSAPrivateKey = "AESPSK_here";
         public static string PayloadUUID = "payload_uuid_here";
+#endif
+#if DEBUG
+        public static bool SleepMaskEnabled = true;
+#else
+        public static bool SleepMaskEnabled = sleep_mask_enabled_here;
 #endif
     }
 }
