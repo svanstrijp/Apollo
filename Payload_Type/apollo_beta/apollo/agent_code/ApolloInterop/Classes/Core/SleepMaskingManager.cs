@@ -105,7 +105,7 @@ namespace ApolloInterop.Classes.Core
                         uint bytesWritten;
                         _pWriteProcessMemory(region.ProcessHandle, region.BaseAddress, buffer, (uint)region.Size, out bytesWritten);
 
-                        // 5. Leave as RW (non-executable) — scanners skip non-executable regions
+                        // 5. Leave as RW (non-executable) - scanners skip non-executable regions
                     }
                     catch
                     {
