@@ -25,8 +25,8 @@ class ApolloBeta(PayloadType):
     wrapper = False
     wrapped_payloads = []
     note = """
-Apollo Beta — Enhanced .NET 4.0 Windows agent with sleep-time memory encryption and permission flipping.
-Built-in EDR evasion: XOR encrypts injected memory regions and flips page protections (RX?RW) during sleep cycles.
+Apollo Beta - Enhanced .NET 4.0 Windows agent with sleep-time memory encryption and permission flipping.
+Built-in EDR evasion: XOR encrypts injected memory regions and flips page protections (RX to RW) during sleep cycles.
 Version: {}
     """.format(semver)
     supports_dynamic_loading = True
