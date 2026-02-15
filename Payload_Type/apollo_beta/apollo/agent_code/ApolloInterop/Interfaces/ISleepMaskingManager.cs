@@ -8,5 +8,6 @@ namespace ApolloInterop.Interfaces
         void UnregisterRegion(IntPtr baseAddress);
         void MaskAllRegions();
         void UnmaskAllRegions();
+        void MaskSingleRegion(IntPtr baseAddress);
     }
 }

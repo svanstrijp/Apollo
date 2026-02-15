@@ -14,6 +14,7 @@ namespace ApolloInterop.Classes.Core
             public IntPtr BaseAddress;
             public int Size;
             public byte[] XorKey;
+            public bool IsMasked;
         }
 
         private delegate bool VirtualProtectEx(
@@ -45,7 +46,6 @@ namespace ApolloInterop.Classes.Core
         private readonly ReadProcessMemory _pReadProcessMemory;
         private readonly WriteProcessMemory _pWriteProcessMemory;
         private readonly object _lock = new object();
-        private bool _isMasked = false;
 
         public SleepMaskingManager(IAgent agent)
         {
@@ -62,9 +62,13 @@ namespace ApolloInterop.Classes.Core
                 ProcessHandle = hProcess,
                 BaseAddress = baseAddress,
                 Size = size,
-                XorKey = key
+                XorKey = key,
+                IsMasked = false
             };
             _regions[baseAddress] = region;
+
+            // Immediately mask the newly registered region to minimize exposure
+            MaskSingleRegion(baseAddress);
         }
 
         public void UnregisterRegion(IntPtr baseAddress)
@@ -72,48 +76,40 @@ namespace ApolloInterop.Classes.Core
             _regions.TryRemove(baseAddress, out _);
         }
 
+        public void MaskSingleRegion(IntPtr baseAddress)
+        {
+            lock (_lock)
+            {
+                TrackedRegion region;
+                if (!_regions.TryGetValue(baseAddress, out region))
+                    return;
+                if (region.IsMasked)
+                    return;
+
+                if (DoMask(ref region))
+                {
+                    region.IsMasked = true;
+                    _regions[baseAddress] = region;
+                }
+            }
+        }
+
         public void MaskAllRegions()
         {
             lock (_lock)
             {
-                if (_isMasked) return;
-
                 foreach (var kvp in _regions)
                 {
                     var region = kvp.Value;
-                    try
+                    if (region.IsMasked)
+                        continue;
+
+                    if (DoMask(ref region))
                     {
-                        // 1. Change to RW so we can read/write the memory
-                        uint oldProtect;
-                        if (!_pVirtualProtectEx(region.ProcessHandle, region.BaseAddress, (uint)region.Size, PAGE_READWRITE, out oldProtect))
-                            continue;
-
-                        // 2. Read the current contents
-                        byte[] buffer = new byte[region.Size];
-                        uint bytesRead;
-                        if (!_pReadProcessMemory(region.ProcessHandle, region.BaseAddress, buffer, (uint)region.Size, out bytesRead))
-                        {
-                            // Restore original protection on failure
-                            _pVirtualProtectEx(region.ProcessHandle, region.BaseAddress, (uint)region.Size, oldProtect, out _);
-                            continue;
-                        }
-
-                        // 3. XOR encrypt in place
-                        XorInPlace(buffer, region.XorKey);
-
-                        // 4. Write the encrypted contents back
-                        uint bytesWritten;
-                        _pWriteProcessMemory(region.ProcessHandle, region.BaseAddress, buffer, (uint)region.Size, out bytesWritten);
-
-                        // 5. Leave as RW (non-executable) - scanners skip non-executable regions
-                    }
-                    catch
-                    {
-                        // Silently continue on failure for individual regions
+                        region.IsMasked = true;
+                        _regions[kvp.Key] = region;
                     }
                 }
-
-                _isMasked = true;
             }
         }
 
@@ -121,37 +117,72 @@ namespace ApolloInterop.Classes.Core
         {
             lock (_lock)
             {
-                if (!_isMasked) return;
-
                 foreach (var kvp in _regions)
                 {
                     var region = kvp.Value;
-                    try
+                    if (!region.IsMasked)
+                        continue;
+
+                    if (DoUnmask(ref region))
                     {
-                        // 1. Read the encrypted contents (already RW from masking)
-                        byte[] buffer = new byte[region.Size];
-                        uint bytesRead;
-                        if (!_pReadProcessMemory(region.ProcessHandle, region.BaseAddress, buffer, (uint)region.Size, out bytesRead))
-                            continue;
-
-                        // 2. XOR decrypt
-                        XorInPlace(buffer, region.XorKey);
-
-                        // 3. Write decrypted contents back
-                        uint bytesWritten;
-                        _pWriteProcessMemory(region.ProcessHandle, region.BaseAddress, buffer, (uint)region.Size, out bytesWritten);
-
-                        // 4. Restore to RX (executable, non-writable)
-                        uint oldProtect;
-                        _pVirtualProtectEx(region.ProcessHandle, region.BaseAddress, (uint)region.Size, PAGE_EXECUTE_READ, out oldProtect);
-                    }
-                    catch
-                    {
-                        // Silently continue on failure for individual regions
+                        region.IsMasked = false;
+                        _regions[kvp.Key] = region;
                     }
                 }
+            }
+        }
 
-                _isMasked = false;
+        private bool DoMask(ref TrackedRegion region)
+        {
+            try
+            {
+                uint oldProtect;
+                if (!_pVirtualProtectEx(region.ProcessHandle, region.BaseAddress, (uint)region.Size, PAGE_READWRITE, out oldProtect))
+                    return false;
+
+                byte[] buffer = new byte[region.Size];
+                uint bytesRead;
+                if (!_pReadProcessMemory(region.ProcessHandle, region.BaseAddress, buffer, (uint)region.Size, out bytesRead))
+                {
+                    _pVirtualProtectEx(region.ProcessHandle, region.BaseAddress, (uint)region.Size, oldProtect, out _);
+                    return false;
+                }
+
+                XorInPlace(buffer, region.XorKey);
+
+                uint bytesWritten;
+                _pWriteProcessMemory(region.ProcessHandle, region.BaseAddress, buffer, (uint)region.Size, out bytesWritten);
+
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private bool DoUnmask(ref TrackedRegion region)
+        {
+            try
+            {
+                byte[] buffer = new byte[region.Size];
+                uint bytesRead;
+                if (!_pReadProcessMemory(region.ProcessHandle, region.BaseAddress, buffer, (uint)region.Size, out bytesRead))
+                    return false;
+
+                XorInPlace(buffer, region.XorKey);
+
+                uint bytesWritten;
+                _pWriteProcessMemory(region.ProcessHandle, region.BaseAddress, buffer, (uint)region.Size, out bytesWritten);
+
+                uint oldProtect;
+                _pVirtualProtectEx(region.ProcessHandle, region.BaseAddress, (uint)region.Size, PAGE_EXECUTE_READ, out oldProtect);
+
+                return true;
+            }
+            catch
+            {
+                return false;
             }
         }
 
