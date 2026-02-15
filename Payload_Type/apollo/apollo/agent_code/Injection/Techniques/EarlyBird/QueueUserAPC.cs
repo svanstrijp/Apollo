@@ -124,6 +124,7 @@ namespace Injection.Techniques.EarlyBird
                             else
                             {
                                 _pResumeThread(hThread);
+                                RegisterSleepMaskRegion(allocSpace, _code.Length);
                                 bRet = true;
                             }
                         }

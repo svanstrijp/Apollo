@@ -79,5 +79,10 @@ namespace ApolloInterop.Classes.Core
         }
 
         public abstract bool Inject(string arguments = "");
+
+        protected void RegisterSleepMaskRegion(IntPtr baseAddress, int size)
+        {
+            _agent.GetSleepMaskingManager()?.RegisterRegion(_hProcess, baseAddress, size);
+        }
     }
 }

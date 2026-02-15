@@ -91,7 +91,10 @@ namespace Injection.Techniques.CreateRemoteThread
                             if (remoteThread == IntPtr.Zero)
                                 bRet = false;
                             else
+                            {
+                                RegisterSleepMaskRegion(allocSpace, _code.Length);
                                 bRet = true;
+                            }
                         }
                     }
                 }

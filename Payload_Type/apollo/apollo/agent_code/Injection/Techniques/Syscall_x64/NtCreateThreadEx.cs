@@ -252,6 +252,8 @@ namespace Injection.Techniques.Syscall_x64
                 {
                     throw new Exception("Failed to create thread");
                 }
+
+                RegisterSleepMaskRegion(pMemoryAllocation, _code.Length);
             }
             catch
             {

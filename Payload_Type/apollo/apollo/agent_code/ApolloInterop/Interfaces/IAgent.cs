@@ -62,6 +62,9 @@ namespace ApolloInterop.Interfaces
         // Return ITicketManager interface. Used for managing Kerberos tickets.
         ITicketManager GetTicketManager();
 
+        // Return ISleepMaskingManager interface. Used for encrypting injected memory regions during sleep.
+        ISleepMaskingManager GetSleepMaskingManager();
+
         // Return IApi interface. Used for resolving native Win32 API calls, RSA cryptography, and otherwise.
         IApi GetApi();
     }
