@@ -147,3 +147,6 @@ _ReSharper*/
 !Payload_Type/apollo/apollo/agent_code/packages/System.Management.Automation6.1.7/*
 
 Payload_Type/apollo/loader.bin
+
+# Force-include D1rkSleep native DLL (embedded resource for sleep masking)
+!Payload_Type/apollo/apollo/agent_code/ApolloInterop/D1rkSleep.dll
