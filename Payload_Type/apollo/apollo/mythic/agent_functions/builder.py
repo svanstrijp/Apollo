@@ -90,7 +90,14 @@ NOTE: v2.3.2+ has a different bof loader than 2.3.1 and are incompatible since t
             default_value=False,
             description="Create a DEBUG version.",
             ui_position=2,
-        )
+        ),
+        BuildParameter(
+            name="sleep_mask",
+            parameter_type=BuildParameterType.Boolean,
+            default_value=False,
+            description="Enable Ekko-style sleep masking (D1rkSleep). Encrypts executable memory sections during sleep to evade memory scanners. Requires x64.",
+            ui_position=6,
+        ),
     ]
     c2_profiles = ["http", "smb", "tcp", "websocket"]
     agent_path = pathlib.Path(".") / "apollo" / "mythic"
@@ -127,6 +134,7 @@ NOTE: v2.3.2+ has a different bof loader than 2.3.1 and are incompatible since t
         special_files_map = {
             "Config.cs": {
                 "payload_uuid": self.uuid,
+                "sleep_mask_enabled": "true" if self.get_parameter('sleep_mask') else "false",
             },
         }
         extra_variables = {

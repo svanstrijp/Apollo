@@ -23,4 +23,9 @@
     <Compile Remove="Serializers\ApolloSerializationBinder.cs" />
     <Compile Remove="Serializers\EncryptedSMBSerializer.cs" />
   </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="D1rkSleep.dll">
+      <LogicalName>D1rkSleep.dll</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
 </Project>

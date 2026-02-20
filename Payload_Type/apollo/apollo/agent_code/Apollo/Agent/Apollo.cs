@@ -9,6 +9,7 @@ using Microsoft.Win32;
 using System.Net.NetworkInformation;
 using System.Collections.Generic;
 using System.IO;
+using ApolloInterop.Classes.Core;
 
 namespace Apollo.Agent
 {
@@ -17,6 +18,8 @@ namespace Apollo.Agent
 
         public Apollo(string uuid) : base(uuid)
         {
+            SleepMask.Enabled = Config.SleepMaskEnabled;
+
             Api = new Api.Api();
             C2ProfileManager = new AM.C2.C2ProfileManager(this);
             PeerManager = new AM.Peer.PeerManager(this);
